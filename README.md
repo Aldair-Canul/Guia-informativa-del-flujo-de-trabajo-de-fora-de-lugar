@@ -65,31 +65,6 @@ Los detalles, con el ejemplo completo, están en la sección *Así lo hacemos en
 
 HTML, CSS y JavaScript puros. Sin frameworks, sin build, sin dependencias.
 
-## Probarlo en tu computadora
-
-Abre `index.html` con doble clic, o levanta un servidor local:
-
-```bash
-git clone https://github.com/Aldair-Canul/Guia-informativa-del-flujo-de-trabajo-de-fora-de-lugar.git
-cd Guia-informativa-del-flujo-de-trabajo-de-fora-de-lugar
-python -m http.server 8000
-# abre http://localhost:8000
-```
-
-## Publicarlo con GitHub Pages
-
-1. Entra a **Settings → Pages**.
-2. En *Build and deployment* elige **Deploy from a branch**.
-3. Selecciona la rama `main` y la carpeta `/ (root)`, y guarda.
-4. En uno o dos minutos estará en:
-   `https://aldair-canul.github.io/Guia-informativa-del-flujo-de-trabajo-de-fora-de-lugar/`
-
-## Personalizar
-
-- **Colores:** variables al inicio de `style.css` (`--accent`, `--ink`, `--bg`).
-- **Comandos del buscador:** arreglo `COMMANDS` en `script.js`.
-- **Cifras del proyecto:** sección `#proyecto` de `index.html`. Salen del historial del repo al 20 de octubre de 2026.
-
 ## Enlaces útiles
 
 - [Documentación de Godot](https://docs.godotengine.org/es/stable/)
