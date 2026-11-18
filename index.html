@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>fora/commit — Godot, Git y GitHub</title>
+  <meta name="description" content="Guía en español para empezar con Godot, Git y GitHub, con ejemplos de un proyecto real de equipo.">
+  <meta name="theme-color" content="#000000">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Cpath d='M8 16h9l7-7M17 16l7 7' stroke='%23ebe8e1' stroke-width='2' fill='none'/%3E%3Ccircle cx='8' cy='16' r='4' fill='%23ff5a1f'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="progress" aria-hidden="true"></div>
+
+  <header class="nav">
+    <a class="brand" href="#inicio">fora<span>/</span>commit</a>
+    <nav aria-label="Secciones">
+      <a href="#fundamentos">Piezas</a>
+      <a href="#ruta">Ruta</a>
+      <a href="#comandos">Comandos</a>
+      <a href="#simulador">Simulador</a>
+      <a href="#godot-git">Godot + Git</a>
+      <a href="#github">GitHub</a>
+      <a href="#proyecto">Nuestro flujo</a>
+      <a href="#checklist">Checklist</a>
+    </nav>
+  </header>
+
+  <main>
+    <!-- INICIO -->
+    <section id="inicio" class="hero">
+      <div class="wrap">
+        <p class="eyebrow">Godot 4 · Git · GitHub</p>
+        <h1>Hacer juegos con Godot,<br><em>guardar cada cambio con Git.</em></h1>
+        <div class="hero-row">
+          <div>
+            <p class="lead">Una guía para empezar desde cero: qué es cada herramienta, cómo se conectan y qué hacer cuando algo sale mal. Al final mostramos cómo lo usamos en un proyecto real de equipo.</p>
+            <div class="cta">
+              <a class="btn primary" href="#ruta">Empezar</a>
+              <a class="btn" href="#proyecto">Ver nuestro proyecto</a>
+            </div>
+          </div>
+          <div class="terminal" role="img" aria-label="Terminal de ejemplo con comandos de Git">
+            <div class="term-bar">~/Godot-Engine</div>
+            <pre id="hero-term" class="term-body"></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 01 PIEZAS -->
+    <section id="fundamentos" class="section">
+      <div class="wrap">
+        <header class="section-head">
+          <span class="num">01</span>
+          <h2>Las tres piezas</h2>
+          <p>Cada una resuelve un problema distinto.</p>
+        </header>
+
+        <div class="rows reveal">
+          <article>
+            <h3>Godot</h3>
+            <p>Motor de videojuegos gratuito y de código abierto, para 2D y 3D. Todo se arma con <strong>nodos</strong> agrupados en <strong>escenas</strong>. Se programa en GDScript, parecido a Python, o en C#.</p>
+            <span class="tag">crear</span>
+          </article>
+          <article>
+            <h3>Git</h3>
+            <p>Control de versiones que vive en tu computadora. Guarda "fotos" del proyecto (<strong>commits</strong>) para volver atrás, y deja probar ideas en <strong>ramas</strong> sin tocar lo que ya funciona.</p>
+            <span class="tag">guardar historial</span>
+          </article>
+          <article>
+            <h3>GitHub</h3>
+            <p>Sitio web que aloja repositorios de Git. Sirve de respaldo y de punto de encuentro del equipo, con <strong>pull requests</strong> para revisar cambios antes de juntarlos.</p>
+            <span class="tag">compartir</span>
+          </article>
+        </div>
+
+        <p class="note reveal">Git es el programa; GitHub es un servicio que guarda una copia. Git funciona sin GitHub, pero GitHub no funciona sin Git.</p>
+      </div>
+    </section>
+
+    <!-- 02 RUTA -->
+    <section id="ruta" class="section alt">
+      <div class="wrap">
+        <header class="section-head">
+          <span class="num">02</span>
+          <h2>Seis pasos para arrancar</h2>
+          <p>En orden. Cada uno termina con algo que ya funciona.</p>
+        </header>
+
+        <ol class="rail">
+          <li class="reveal">
+            <h3>Instala Godot</h3>
+            <p>Descarga la versión estable 4.x desde <a href="https://godotengine.org/download" target="_blank" rel="noopener">godotengine.org</a>. No se instala: es un ejecutable que abres directo. Para empezar, la versión estándar (GDScript).</p>
+          </li>
+          <li class="reveal">
+            <h3>Instala Git</h3>
+            <p>Desde <a href="https://git-scm.com/downloads" target="_blank" rel="noopener">git-scm.com</a>. Luego dile quién eres, una sola vez:</p>
+            <div class="code" data-lang="bash">
+              <button class="copy" type="button">Copiar</button>
+              <pre><code>git config --global user.name "Tu Nombre"
+git config --global user.email "tu@correo.com"
+git config --global init.defaultBranch main</code></pre>
+            </div>
+          </li>
+          <li class="reveal">
+            <h3>Crea tu cuenta de GitHub</h3>
+            <p>En <a href="https://github.com" target="_blank" rel="noopener">github.com</a>, con el mismo correo que pusiste en Git. Activa la verificación en dos pasos desde el principio.</p>
+          </li>
+          <li class="reveal">
+            <h3>Crea un proyecto en Godot</h3>
+            <p>En el gestor de proyectos pulsa <em>Crear</em>, elige una carpeta vacía y el renderizador de compatibilidad, que es el más ligero. Haz una escena con un <code>Node2D</code> y un <code>Sprite2D</code> y córrela con <kbd>F5</kbd>.</p>
+          </li>
+          <li class="reveal">
+            <h3>Inicia el repositorio</h3>
+            <p>Terminal dentro de la carpeta del proyecto, <code>.gitignore</code> primero (está más abajo) y después el primer commit.</p>
+            <div class="code" data-lang="bash">
+              <button class="copy" type="button">Copiar</button>
+              <pre><code>git init
+git add .
+git commit -m "Proyecto inicial de Godot"</code></pre>
+            </div>
+          </li>
+          <li class="reveal">
+            <h3>Súbelo a GitHub</h3>
+            <p>Conecta el repo local con uno remoto y publica. Los comandos están en la sección <a href="#github">GitHub</a>.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- 03 COMANDOS -->
+    <section id="comandos" class="section">
+      <div class="wrap">
+        <header class="section-head">
+          <span class="num">03</span>
+          <h2>Comandos de Git</h2>
+          <p>Busca o filtra. Un clic copia el comando.</p>
+        </header>
+
+        <div class="toolbar">
+          <label class="search">
+            <span class="sr">Buscar comando</span>
+            <input id="cmd-search" type="search" placeholder="buscar: rama, deshacer, subir…" autocomplete="off">
+          </label>
+          <div id="cmd-chips" class="chips" role="group" aria-label="Categorías"></div>
+        </div>
+
+        <div id="cmd-list" class="cmd-list" aria-live="polite"></div>
+        <p id="cmd-empty" class="muted" hidden>Nada coincide. Prueba con otra palabra.</p>
+      </div>
+    </section>
+
+    <!-- 04 SIMULADOR -->
+    <section id="simulador" class="section alt">
+      <div class="wrap">
+        <header class="section-head">
+          <span class="num">04</span>
+          <h2>Simulador de ramas</h2>
+          <p>Cada círculo es un commit. Las líneas muestran de cuál viene.</p>
+        </header>
+
+        <div class="sim">
+          <div class="sim-controls">
+            <button id="sim-commit" class="btn small primary" type="button">+ commit</button>
+            <button id="sim-branch" class="btn small" type="button">nueva rama</button>
+            <button id="sim-merge" class="btn small" type="button">merge a main</button>
+            <button id="sim-reset" class="btn small ghost" type="button">reiniciar</button>
+          </div>
+          <div id="sim-branches" class="chips" aria-label="Ramas disponibles"></div>
+          <div class="sim-canvas"><div id="sim-graph" role="img" aria-label="Grafo de commits y ramas"></div></div>
+          <pre id="sim-log" class="sim-log" aria-live="polite"></pre>
+        </div>
+
+        <ul class="plain-list">
+          <li><b>Rama:</b> línea de trabajo paralela. Sirve para probar algo sin romper lo que ya funciona.</li>
+          <li><b>Merge:</b> junta una rama con otra y crea un commit con dos padres.</li>
+          <li><b>Límite:</b> cuatro ramas como máximo, para que el dibujo se siga leyendo.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 05 GODOT + GIT -->
+    <section id="godot-git" class="section">
+      <div class="wrap">
+        <header class="section-head">
+          <span class="num">05</span>
+          <h2>Godot y Git juntos</h2>
+          <p>Godot guarda escenas y recursos como texto, así que Git los entiende bien. Hay que configurar algunas cosas desde el inicio.</p>
+        </header>
+
+        <div class="tabs" role="tablist" aria-label="Archivos de configuración">
+          <button class="tab active" role="tab" aria-selected="true" data-tab="ignore" type="button">.gitignore</button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="attrs" type="button">.gitattributes</button>
+        </div>
+
+        <div class="tabpanel active" id="tab-ignore" role="tabpanel">
+          <div class="code" data-lang=".gitignore">
+            <button class="copy" type="button">Copiar</button>
+            <pre><code># Caché del editor de Godot 4 (se regenera sola)
+.godot/
+*.translation
+
+# Exportaciones y compilados
+export/
+build/
+*.apk
+*.aab
+*.exe
+*.pck
+
+# Credenciales de exportación
+export_credentials.cfg
+
+# Editor y sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db</code></pre>
+          </div>
+        </div>
+
+        <div class="tabpanel" id="tab-attrs" role="tabpanel" hidden>
+          <div class="code" data-lang=".gitattributes">
+            <button class="copy" type="button">Copiar</button>
+            <pre><code># Finales de línea iguales en todos los sistemas
+* text=auto eol=lf
+
+# Archivos pesados con Git LFS
+*.png  filter=lfs diff=lfs merge=lfs -text
+*.jpg  filter=lfs diff=lfs merge=lfs -text
+*.wav  filter=lfs diff=lfs merge=lfs -text
+*.ogg  filter=lfs diff=lfs merge=lfs -text
+*.ogv  filter=lfs diff=lfs merge=lfs -text
+*.mp3  filter=lfs diff=lfs merge=lfs -text
+*.glb  filter=lfs diff=lfs merge=lfs -text</code></pre>
+          </div>
+          <p class="muted small">Instala Git LFS y corre <code>git lfs install</code> una vez. En proyectos chicos es opcional; con arte, audio y video pesados deja de serlo.</p>
+        </div>
+
+        <div class="two-col">
+          <div>
+            <h3 class="mini-title">Sí se sube</h3>
+            <ul class="ticks">
+              <li><code>project.godot</code> y las carpetas del juego</li>
+              <li>Escenas <code>.tscn</code> y recursos <code>.tres</code></li>
+              <li>Scripts <code>.gd</code> y sus <code>.uid</code> (Godot 4.4 en adelante)</li>
+              <li>Los <code>.import</code>, junto a su asset</li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="mini-title">No se sube</h3>
+            <ul class="crosses">
+              <li>La carpeta <code>.godot/</code>, que es caché local</li>
+              <li>Ejecutables y paquetes exportados</li>
+              <li>Contraseñas o llaves de firma</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3 class="mini-title spaced">Hábitos que evitan conflictos</h3>
+        <dl class="habits">
+          <div><dt>Commits pequeños</dt><dd>Un cambio por commit: "Agrega salto doble", no "cambios varios".</dd></div>
+          <div><dt>Una rama por tarea</dt><dd>Nombres como <code>feat/enemigo-volador</code> o <code>fix/colision-pared</code>.</dd></div>
+          <div><dt>Escenas chicas</dt><dd>Dos personas editando la misma escena a la vez es la causa número uno de conflictos. Divide el juego en muchas escenas pequeñas.</dd></div>
+          <div><dt>Tags de versión</dt><dd><code>git tag v0.1.0</code> marca una demo estable a la que puedes volver.</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- 06 GITHUB -->
+    <section id="github" class="section alt">
+      <div class="wrap">
+        <header class="section-head">
+          <span class="num">06</span>
+          <h2>Publicar en GitHub</h2>
+          <p>Del repo local a la nube.</p>
+        </header>
+
+        <ol class="steps">
+          <li><b>Crea un repositorio vacío</b> con el botón <em>New</em>. No marques README ni .gitignore: ya tienes los tuyos.</li>
+          <li><b>Copia la URL.</b> HTTPS es lo más simple para empezar; SSH es más cómodo con el tiempo.</li>
+          <li><b>Conéctalo y publica</b> la rama principal.</li>
+          <li><b>Autentícate.</b> GitHub ya no acepta tu contraseña en la terminal: usa un <em>Personal Access Token</em> o Git Credential Manager.</li>
+        </ol>
+
+        <div class="code" data-lang="bash">
+          <button class="copy" type="button">Copiar</button>
+          <pre><code>
+git remote add origin https://github.com/TU-USUARIO/mi-juego.git
+git branch -M main
+git push -u origin main
+
+# el ciclo diario, a partir de aquí:
+git switch -c tu-rama
+git add .
+git commit -m "Describe lo que hiciste"
+git push -u origin tu-rama
+
+# crea el Pull Request y confirma el Merge en
+este momento tus cambios pasan oficialmente a
+formar parte de la rama principal
+
+# borra tu rama (opcionaL pero recomendado):
+Una vez integrado, la misma página te mostrará
+un botón para eliminar la rama remota(Delete branch),
+ya que su trabajo terminó
+
+# actualizar tu computadora:
+git switch main 
+git pull
+
+
+</code></pre>
+        </div>
+        <p class="note">Para colaborar: crea una rama, súbela con <code>git push -u origin nombre-rama</code> y abre un <em>Pull Request</em>. Alguien lo revisa antes de fusionarlo.</p>
+      </div>
+    </section>
+
+    <!-- 07 NUESTRO FLUJO -->
+    <section id="proyecto" class="section">
+      <div class="wrap">
+        <header class="section-head">
+          <span class="num">07</span>
+          <h2>Así lo hacemos en Fora de Lugar</h2>
+          <p>Lo que sigue sale del historial real de nuestro repositorio, no de un manual.</p>
+        </header>
+
+        <p class="lead-sm">Fora de Lugar es un juego hecho en Godot 4.6 para la Facultad de Ingeniería, con escenas como el cuarto, el mercado, el súper y un minijuego de mesero. Todo el trabajo vive en un solo repositorio.</p>
+        <p>
+          <a class="btn primary" href="https://github.com/Aldair-Canul/Facultad-de-Ingenieria---Fora-de-Lugar" target="_blank" rel="noopener">Abrir el repositorio en GitHub ↗</a>
+        </p>
+
+        <dl class="facts">
+          <div><dt>128</dt><dd>commits en main</dd></div>
+          <div><dt>61</dt><dd>merges de Pull Request</dd></div>
+          <div><dt>14 sem.</dt><dd>13 jul → 20 oct 2026</dd></div>
+          <div><dt>4.6</dt><dd>versión de Godot</dd></div>
+        </dl>
+
+        <h3 class="mini-title spaced">Commits por mes</h3>
+        <div class="bars" role="img" aria-label="Commits por mes: julio 23, agosto 30, septiembre 32, octubre 43">
+          <div class="bar" style="--v:23"><i></i><b>23</b><span>jul</span></div>
+          <div class="bar" style="--v:30"><i></i><b>30</b><span>ago</span></div>
+          <div class="bar" style="--v:32"><i></i><b>32</b><span>sep</span></div>
+          <div class="bar" style="--v:43"><i></i><b>43</b><span>oct</span></div>
+        </div>
+        <p class="muted small">Incluye los commits de merge. El ritmo sube hacia la entrega.</p>
+
+        <h3 class="mini-title spaced">Cómo está organizado el repo</h3>
+        <div class="code" data-lang="estructura">
+          <pre><code>Proyecto-Infomatrix/
+├── Godot-Engine/       el proyecto (project.godot y su propio .gitignore)
+├── Audios/
+├── Documentación/      guion, storyboard y reportes técnicos
+└── Resources-Diego/</code></pre>
+        </div>
+        <p class="muted small">El proyecto de Godot está dentro de una subcarpeta, así que el <code>.gitignore</code> va ahí, junto a <code>project.godot</code>, y no en la raíz del repo.</p>
+
+        <h3 class="mini-title spaced">El ciclo de cada tarea</h3>
+        <ol class="steps">
+          <li><b><code>main</code> es lo que funciona.</b> Nadie trabaja directo en ella.</li>
+          <li><b>Una rama por tarea</b>, con prefijo según el tipo de cambio.</li>
+          <li><b>Commits con gitmoji</b> y un mensaje que diga qué cambió.</li>
+          <li><b>Push y Pull Request.</b> Todo entra a <code>main</code> por PR: llevamos más de 60.</li>
+          <li><b>Merge</b> desde GitHub y de vuelta a <code>main</code> para empezar la siguiente.</li>
+        </ol>
+        <div class="code" data-lang="bash · un ejemplo real">
+          <button class="copy" type="button">Copiar</button>
+          <pre><code>git switch main
+git pull
+git switch -c fix/cinematicas
+# ...trabajas en Godot...
+git add .
+git commit -m ":bug: fix: Videos optimizados implementados en el juego"
+git push -u origin fix/cinematicas
+# abres el Pull Request en GitHub y se fusiona</code></pre>
+        </div>
+
+        <div class="two-col">
+          <div>
+            <h3 class="mini-title">Nombres de rama</h3>
+            <ul class="mono-list">
+              <li><code>feat/</code> funciones y escenas nuevas</li>
+              <li><code>fix/</code> <span>fix/cuarto, fix/calle, fix/barra</span></li>
+              <li><code>opt/</code> <span>opt/vid, para optimizar videos</span></li>
+              <li><code>update/</code> <span>update/mesero, update/mercado</span></li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="mini-title">Mensajes de commit</h3>
+            <ul class="mono-list">
+              <li><code>:bug:</code> <span>corrige un error</span></li>
+              <li><code>:hammer:</code> <span>mejora algo existente</span></li>
+              <li><code>:sparkles:</code> <span>algo nuevo</span></li>
+              <li><code>:white_check_mark:</code> <span>escena lista</span></li>
+              <li><code>:rocket:</code> <span>versión o ejecutables</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <h3 class="mini-title spaced">Lo que haríamos distinto</h3>
+        <p class="muted">Al revisar el historial, esto es lo que nos falta pulir. Mejor aprender de nuestros errores que repetirlos.</p>
+        <ul class="issues">
+          <li>
+            <b>Los ejecutables viven en el repo.</b>
+            <span>La carpeta <code>EXPORTACIONES</code> (builds de Web y Linux) pesa unos 104 MB y cada versión nueva se suma al historial. La carpeta <code>.git</code> ya ronda los 533 MB. Para builds es mejor usar GitHub Releases, y Git LFS para videos y arte pesado.</span>
+          </li>
+          <li>
+            <b>Nombres de rama que no dicen nada.</b>
+            <span>Junto a <code>fix/cuarto</code> conviven <code>final</code>, <code>reduccion</code> o <code>MAFER</code>, y se mezclan <code>feat/</code> con <code>feature/</code>. Una regla escrita evita eso.</span>
+          </li>
+          <li>
+            <b>Algunos mensajes no explican el cambio.</b>
+            <span>Hay commits que solo dicen <code>Bugs</code> o un emoji. Dentro de un mes nadie recordará qué eran.</span>
+          </li>
+          <li>
+            <b>El <code>.gitignore</code> ignora <code>*.import</code>,</b>
+            <span>pero más de cien de esos archivos ya se rastrean. Lo recomendado en Godot 4 es subirlos y dejar fuera solo <code>.godot/</code>.</span>
+          </li>
+          <li>
+            <b>No hay README en la raíz.</b>
+            <span>Quien llegue al repo no sabe qué es ni cómo abrirlo. Dos párrafos y la versión de Godot bastan.</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 08 CHECKLIST -->
+    <section id="checklist" class="section alt">
+      <div class="wrap">
+        <header class="section-head">
+          <span class="num">08</span>
+          <h2>Tu progreso</h2>
+          <p>Marca lo que ya hiciste. Se guarda en tu navegador.</p>
+        </header>
+
+        <div class="meter" aria-live="polite">
+          <div class="meter-top"><span>avance</span><b id="check-pct">0%</b></div>
+          <div class="meter-bar"><i id="check-bar"></i></div>
+        </div>
+
+        <ul id="checklist-items" class="checklist">
+          <li><label><input type="checkbox" data-key="godot"><span>Instalé Godot y corrí una escena con F5</span></label></li>
+          <li><label><input type="checkbox" data-key="git"><span>Instalé Git y configuré mi nombre y correo</span></label></li>
+          <li><label><input type="checkbox" data-key="github"><span>Creé mi cuenta de GitHub con verificación en dos pasos</span></label></li>
+          <li><label><input type="checkbox" data-key="ignore"><span>Puse un .gitignore antes del primer commit</span></label></li>
+          <li><label><input type="checkbox" data-key="commit"><span>Hice mi primer commit</span></label></li>
+          <li><label><input type="checkbox" data-key="branch"><span>Creé una rama y la fusioné con main</span></label></li>
+          <li><label><input type="checkbox" data-key="push"><span>Subí mi proyecto con git push</span></label></li>
+          <li><label><input type="checkbox" data-key="pr"><span>Abrí mi primer Pull Request</span></label></li>
+          <li><label><input type="checkbox" data-key="tag"><span>Marqué una versión con un tag</span></label></li>
+        </ul>
+        <button id="check-reset" class="btn small ghost" type="button">Reiniciar</button>
+      </div>
+    </section>
+
+    <!-- 09 FAQ -->
+    <section id="faq" class="section">
+      <div class="wrap">
+        <header class="section-head">
+          <span class="num">09</span>
+          <h2>Preguntas frecuentes</h2>
+          <p>Las que casi todos tienen al empezar.</p>
+        </header>
+
+        <div class="faq">
+          <details>
+            <summary>¿Necesito saber programar para usar Godot?</summary>
+            <p>No para empezar. Puedes armar escenas y probar cosas con muy poco código. GDScript es de los lenguajes más amables para aprender y la documentación oficial tiene versión en español.</p>
+          </details>
+          <details>
+            <summary>Se llenó el repositorio de archivos raros, ¿qué pasó?</summary>
+            <p>Seguramente se subió la carpeta <code>.godot/</code>. Agrégala al <code>.gitignore</code>, corre <code>git rm -r --cached .godot</code> para dejar de rastrearla y haz un commit.</p>
+          </details>
+          <details>
+            <summary>Me salió un conflicto en un .tscn, ¿qué hago?</summary>
+            <p>Ábrelo en un editor de texto: verás marcas <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>, <code>=======</code> y <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code>. Elige qué versión conservar, borra las marcas, abre la escena en Godot para confirmar que carga y haz commit. Si se complica, <code>git merge --abort</code> te regresa al estado anterior.</p>
+          </details>
+          <details>
+            <summary>¿Puedo deshacer un commit?</summary>
+            <p>Sí. Si aún no lo subiste, <code>git reset --soft HEAD~1</code> lo quita y deja tus cambios listos. Si ya lo subiste, usa <code>git revert &lt;id&gt;</code>, que crea un commit nuevo que lo cancela.</p>
+          </details>
+          <details>
+            <summary>¿Todo esto es gratis?</summary>
+            <p>Godot y Git son de código abierto. GitHub tiene un plan gratuito con repositorios privados, suficiente para proyectos personales y escolares.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap foot-grid">
+      <div>
+        <a class="brand" href="#inicio">fora<span>/</span>commit</a>
+        <p class="muted small">Flujo de trabajo en git.</p>
+        <p class="muted small copyright">© 2026 Equipo Fora de Lugar · Facultad de Ingeniería. Todos los derechos reservados.</p>
+      </div>
+      <div class="foot-links">
+        <a href="https://fora-pagina-informativa.pages.dev/">
+          Pagina Informativa
+          de Fora de Lugar
+        </a>
+        <a href="https://github.com/Aldair-Canul/Facultad-de-Ingenieria---Fora-de-Lugar" target="_blank" rel="noopener">Nuestro repo</a>
+        <a href="https://docs.godotengine.org/es/stable/" target="_blank" rel="noopener">Docs de Godot</a>
+        <a href="https://git-scm.com/book/es/v2" target="_blank" rel="noopener">Pro Git</a>
+        <a href="https://docs.github.com/es" target="_blank" rel="noopener">Docs de GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <button id="to-top" class="to-top" type="button" aria-label="Volver arriba">↑</button>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
