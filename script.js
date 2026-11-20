@@ -1,382 +1,569 @@
 /* ==========================================================
-   fora/commit — interactividad en JavaScript puro
+   fora/commit — interactividad en JavaScript 
+
+   Contenido del archivo:
+     1. Utilidades (selectores, escape de HTML, avisos, copiar)
+     2. Comportamiento general (progreso de lectura, aparición, navegación)
+     3. Terminal animada del inicio
+     4. Buscador de comandos de Git
+     5. Simulador de ramas
+     6. Pestañas de .gitignore / .gitattributes
+     7. Checklist de progreso (guarda en localStorage)
+
+   Todo vive dentro de una función que se ejecuta sola, para no
+   crear variables globales.
    ========================================================== */
 (() => {
   'use strict';
 
-  const $ = (sel, root = document) => root.querySelector(sel);
-  const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  document.documentElement.classList.add('js');
-  const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  /* ==========================================================
+     1. UTILIDADES
+     ========================================================== */
 
-  /* ---------- Toast ---------- */
-  const toastEl = $('#toast');
-  let toastTimer;
-  function toast(msg) {
-    toastEl.textContent = msg;
-    toastEl.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800);
+  /** Devuelve el primer elemento que coincide con el selector CSS. */
+  const seleccionar = (selector, raiz = document) => raiz.querySelector(selector);
+
+  /** Devuelve un arreglo con todos los elementos que coinciden con el selector. */
+  const seleccionarTodos = (selector, raiz = document) => [...raiz.querySelectorAll(selector)];
+
+  /** True si la persona pidió menos animaciones en su sistema operativo. */
+  const reducirMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Esta clase permite que el CSS oculte elementos que se animan al aparecer
+  // solo cuando JavaScript sí está funcionando.
+  document.documentElement.classList.add('js');
+
+  /** Escapa caracteres especiales para insertar texto de forma segura dentro de HTML. */
+  const escaparHtml = (texto) => texto.replace(/[&<>"']/g, (caracter) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[caracter]));
+
+  const avisoEl = seleccionar('#toast');
+  let temporizadorAviso;
+
+  /** Muestra un mensaje breve en la parte inferior de la pantalla. */
+  function mostrarAviso(mensaje) {
+    avisoEl.textContent = mensaje;
+    avisoEl.classList.add('show');
+    clearTimeout(temporizadorAviso);
+    temporizadorAviso = setTimeout(() => avisoEl.classList.remove('show'), 1800);
   }
 
-  /* ---------- Copiar al portapapeles ---------- */
-  async function copyText(text) {
+  /**
+   * Copia texto al portapapeles.
+   * Si el navegador no permite la API moderna, usa un método antiguo de respaldo.
+   * @returns {Promise<boolean>} true si se pudo copiar.
+   */
+  async function copiarTexto(texto) {
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(texto);
       return true;
     } catch (_) {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      let ok = false;
-      try { ok = document.execCommand('copy'); } catch (_) { /* sin soporte */ }
-      ta.remove();
-      return ok;
+      const areaTemporal = document.createElement('textarea');
+      areaTemporal.value = texto;
+      areaTemporal.className = 'copia-temporal';
+      document.body.appendChild(areaTemporal);
+      areaTemporal.select();
+      let copiado = false;
+      try { copiado = document.execCommand('copy'); } catch (_) { /* el navegador no lo permite */ }
+      areaTemporal.remove();
+      return copiado;
     }
   }
 
-  $$('.code .copy').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const code = $('code', btn.parentElement).innerText;
-      const ok = await copyText(code);
-      btn.textContent = ok ? '¡Copiado!' : 'Error';
-      btn.classList.toggle('ok', ok);
-      setTimeout(() => { btn.textContent = 'Copiar'; btn.classList.remove('ok'); }, 1500);
+  // Botones "Copiar" de cada bloque de código
+  seleccionarTodos('.code .copy').forEach((boton) => {
+    boton.addEventListener('click', async () => {
+      const codigo = seleccionar('code', boton.parentElement).innerText;
+      const copiado = await copiarTexto(codigo);
+      boton.textContent = copiado ? '¡Copiado!' : 'Error';
+      boton.classList.toggle('ok', copiado);
+      setTimeout(() => { boton.textContent = 'Copiar'; boton.classList.remove('ok'); }, 1500);
     });
   });
 
-  /* ---------- Barra de progreso, volver arriba ---------- */
-  const bar = $('.progress');
-  const toTop = $('#to-top');
-  function onScroll() {
-    const h = document.documentElement;
-    const max = h.scrollHeight - h.clientHeight;
-    bar.style.transform = `scaleX(${max > 0 ? h.scrollTop / max : 0})`;
-    toTop.classList.toggle('show', h.scrollTop > 600);
-  }
-  window.addEventListener('scroll', onScroll, { passive: true });
-  onScroll();
-  toTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' }));
+  /* ==========================================================
+     2. COMPORTAMIENTO GENERAL
+     ========================================================== */
 
-  /* ---------- Aparición al hacer scroll ---------- */
-  if ('IntersectionObserver' in window) {
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((e) => {
-        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
-      });
-    }, { threshold: 0.12 });
-    $$('.reveal, .bars').forEach((el) => io.observe(el));
-  } else {
-    $$('.reveal, .bars').forEach((el) => el.classList.add('in'));
-  }
+  // --- Barra de progreso de lectura y botón de volver arriba ---
+  const barraProgreso = seleccionar('.progress');
+  const botonSubir = seleccionar('#to-top');
 
-  /* ---------- Navegación: sección activa ---------- */
-  const navLinks = $$('.nav nav a');
-  const sectionMap = new Map(navLinks.map((a) => [a.getAttribute('href').slice(1), a]));
+  /** Actualiza la barra de progreso y muestra el botón de subir pasados 600 px. */
+  function alDesplazar() {
+    const documento = document.documentElement;
+    const recorridoMaximo = documento.scrollHeight - documento.clientHeight;
+    const avance = recorridoMaximo > 0 ? documento.scrollTop / recorridoMaximo : 0;
+    barraProgreso.style.transform = `scaleX(${avance})`;
+    botonSubir.classList.toggle('show', documento.scrollTop > 600);
+  }
+  window.addEventListener('scroll', alDesplazar, { passive: true });
+  alDesplazar();
+  botonSubir.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: reducirMovimiento ? 'auto' : 'smooth' });
+  });
+
+  // --- Aparición de elementos al llegar a ellos con el scroll ---
+  // Si el navegador es muy viejo y no tiene IntersectionObserver, se muestran todos de una vez.
+  const elementosAnimados = '.reveal, .bars';
   if ('IntersectionObserver' in window) {
-    const so = new IntersectionObserver((entries) => {
-      entries.forEach((e) => {
-        if (e.isIntersecting) {
-          navLinks.forEach((a) => a.classList.remove('active'));
-          const link = sectionMap.get(e.target.id);
-          if (link) link.classList.add('active');
+    const observadorAparicion = new IntersectionObserver((entradas) => {
+      entradas.forEach((entrada) => {
+        if (entrada.isIntersecting) {
+          entrada.target.classList.add('in');
+          observadorAparicion.unobserve(entrada.target);
         }
       });
-    }, { rootMargin: '-45% 0px -50% 0px' });
-    sectionMap.forEach((_, id) => { const s = document.getElementById(id); if (s) so.observe(s); });
+    }, { threshold: 0.12 });
+    seleccionarTodos(elementosAnimados).forEach((elemento) => observadorAparicion.observe(elemento));
+  } else {
+    seleccionarTodos(elementosAnimados).forEach((elemento) => elemento.classList.add('in'));
   }
 
-  /* ---------- Hero: terminal que "escribe" ---------- */
-  (function heroTerminal() {
-    const el = $('#hero-term');
-    if (!el) return;
-    const script = [
-      { t: 'git switch -c fix/cinematicas', out: "Switched to a new branch 'fix/cinematicas'" },
-      { t: 'git add .', out: '' },
-      { t: 'git commit -m ":bug: fix: Videos optimizados"', out: '[fix/cinematicas 0160fbc] :bug: fix: Videos optimizados' },
-      { t: 'git push -u origin fix/cinematicas', out: 'Branch fix/cinematicas set up to track origin.' },
-      { t: '# ahora abres el Pull Request en GitHub', out: '' }
+  // --- Navegación: resalta el enlace de la sección que se está leyendo ---
+  const enlacesNav = seleccionarTodos('.nav nav a');
+  const enlacePorSeccion = new Map(
+    enlacesNav.map((enlace) => [enlace.getAttribute('href').slice(1), enlace])
+  );
+  if ('IntersectionObserver' in window) {
+    const observadorSecciones = new IntersectionObserver((entradas) => {
+      entradas.forEach((entrada) => {
+        if (!entrada.isIntersecting) return;
+        enlacesNav.forEach((enlace) => enlace.classList.remove('active'));
+        const enlaceActual = enlacePorSeccion.get(entrada.target.id);
+        if (enlaceActual) enlaceActual.classList.add('active');
+      });
+    }, { rootMargin: '-45% 0px -50% 0px' }); // la sección cuenta como "actual" al cruzar el centro de la pantalla
+    enlacePorSeccion.forEach((_, idSeccion) => {
+      const seccion = document.getElementById(idSeccion);
+      if (seccion) observadorSecciones.observe(seccion);
+    });
+  }
+
+  /* ==========================================================
+     3. TERMINAL ANIMADA DEL INICIO
+     Escribe una secuencia de comandos letra por letra y reinicia.
+     ========================================================== */
+  (function terminalDelInicio() {
+    const terminalEl = seleccionar('#hero-term');
+    if (!terminalEl) return;
+
+    // Cada paso tiene el comando que se "teclea" y la respuesta que muestra Git
+    const guion = [
+      { comando: 'git switch -c fix/cinematicas', salida: "Switched to a new branch 'fix/cinematicas'" },
+      { comando: 'git add .', salida: '' },
+      { comando: 'git commit -m ":bug: fix: Videos optimizados"', salida: '[fix/cinematicas 0160fbc] :bug: fix: Videos optimizados' },
+      { comando: 'git push -u origin fix/cinematicas', salida: 'Branch fix/cinematicas set up to track origin.' },
+      { comando: '# ahora abres el Pull Request en GitHub', salida: '' }
     ];
-    if (reduceMotion) {
-      el.innerHTML = script.map((s) => `<span class="p">$</span> ${esc(s.t)}\n${s.out ? `<span class="o">${esc(s.out)}</span>\n` : ''}`).join('');
+
+    /** Devuelve el HTML de un paso ya terminado: comando más su respuesta. */
+    const lineaCompleta = (paso) =>
+      `<span class="p">$</span> ${escaparHtml(paso.comando)}\n` +
+      (paso.salida ? `<span class="o">${escaparHtml(paso.salida)}</span>\n` : '');
+
+    // Con "menos movimiento" se muestra todo de golpe, sin animación
+    if (reducirMovimiento) {
+      terminalEl.innerHTML = guion.map(lineaCompleta).join('');
       return;
     }
-    let html = '';
-    let line = 0;
-    function typeLine() {
-      if (line >= script.length) {
-        setTimeout(() => { html = ''; line = 0; el.innerHTML = ''; typeLine(); }, 3500);
+
+    let htmlAcumulado = '';
+    let pasoActual = 0;
+
+    /** Teclea el comando del paso actual y pasa al siguiente. */
+    function escribirPaso() {
+      if (pasoActual >= guion.length) {
+        // Al terminar, espera un momento y vuelve a empezar
+        setTimeout(() => {
+          htmlAcumulado = '';
+          pasoActual = 0;
+          terminalEl.innerHTML = '';
+          escribirPaso();
+        }, 3500);
         return;
       }
-      const { t, out } = script[line];
-      let i = 0;
-      const base = html + '<span class="p">$</span> ';
-      (function tick() {
-        el.innerHTML = `${base}${esc(t.slice(0, i))}<span class="c"></span>`;
-        if (i++ < t.length) { setTimeout(tick, 28 + Math.random() * 40); return; }
-        html = `${base}${esc(t)}\n${out ? `<span class="o">${esc(out)}</span>\n` : ''}`;
-        el.innerHTML = html;
-        line++;
-        setTimeout(typeLine, 650);
+      const paso = guion[pasoActual];
+      const prompt = htmlAcumulado + '<span class="p">$</span> ';
+      let letrasEscritas = 0;
+
+      (function teclear() {
+        terminalEl.innerHTML = `${prompt}${escaparHtml(paso.comando.slice(0, letrasEscritas))}<span class="c"></span>`;
+        if (letrasEscritas++ < paso.comando.length) {
+          setTimeout(teclear, 28 + Math.random() * 40); // velocidad irregular, como una persona
+          return;
+        }
+        htmlAcumulado += lineaCompleta(paso);
+        terminalEl.innerHTML = htmlAcumulado;
+        pasoActual++;
+        setTimeout(escribirPaso, 650);
       })();
     }
-    typeLine();
+    escribirPaso();
   })();
 
-  /* ---------- Comandos: búsqueda y filtros ---------- */
-  const COMMANDS = [
-    { cmd: 'git init', desc: 'Crea un repositorio nuevo en la carpeta actual.', cat: 'Inicio' },
-    { cmd: 'git clone <url>', desc: 'Descarga un repositorio remoto a tu computadora.', cat: 'Inicio' },
-    { cmd: 'git config --global user.name "Nombre"', desc: 'Define tu nombre para firmar commits.', cat: 'Inicio' },
-    { cmd: 'git config --global user.email "correo"', desc: 'Define tu correo para los commits.', cat: 'Inicio' },
-    { cmd: 'git status', desc: 'Muestra qué archivos cambiaron y cuáles están listos para commit.', cat: 'Día a día' },
-    { cmd: 'git add .', desc: 'Prepara todos los cambios para el siguiente commit.', cat: 'Día a día' },
-    { cmd: 'git add <archivo>', desc: 'Prepara solo un archivo.', cat: 'Día a día' },
-    { cmd: 'git commit -m "mensaje"', desc: 'Guarda una foto de lo preparado con un mensaje claro.', cat: 'Día a día' },
-    { cmd: 'git diff', desc: 'Muestra línea por línea qué cambió y aún no se ha preparado.', cat: 'Día a día' },
-    { cmd: 'git log --oneline --graph', desc: 'Historial compacto con dibujo de ramas.', cat: 'Día a día' },
-    { cmd: 'git branch', desc: 'Lista tus ramas locales.', cat: 'Ramas' },
-    { cmd: 'git switch -c <rama>', desc: 'Crea una rama nueva y te cambia a ella.', cat: 'Ramas' },
-    { cmd: 'git switch <rama>', desc: 'Cambia a una rama existente.', cat: 'Ramas' },
-    { cmd: 'git merge <rama>', desc: 'Fusiona esa rama en la que tienes activa.', cat: 'Ramas' },
-    { cmd: 'git branch -d <rama>', desc: 'Borra una rama ya fusionada.', cat: 'Ramas' },
-    { cmd: 'git tag v0.1.0', desc: 'Marca un commit como versión.', cat: 'Ramas' },
-    { cmd: 'git remote add origin <url>', desc: 'Conecta tu repo local con uno en GitHub.', cat: 'Remoto' },
-    { cmd: 'git push -u origin main', desc: 'Sube tu rama y recuerda el destino para siguientes veces.', cat: 'Remoto' },
-    { cmd: 'git push', desc: 'Sube tus commits nuevos.', cat: 'Remoto' },
-    { cmd: 'git pull', desc: 'Trae y fusiona los cambios del remoto.', cat: 'Remoto' },
-    { cmd: 'git fetch', desc: 'Trae información del remoto sin fusionar nada.', cat: 'Remoto' },
-    { cmd: 'git restore <archivo>', desc: 'Descarta cambios sin guardar de un archivo.', cat: 'Deshacer' },
-    { cmd: 'git restore --staged <archivo>', desc: 'Saca un archivo de los preparados (no borra tus cambios).', cat: 'Deshacer' },
-    { cmd: 'git reset --soft HEAD~1', desc: 'Deshace el último commit conservando tus cambios.', cat: 'Deshacer' },
-    { cmd: 'git revert <id>', desc: 'Crea un commit que cancela otro. Seguro para historial compartido.', cat: 'Deshacer' },
-    { cmd: 'git merge --abort', desc: 'Cancela una fusión con conflictos y vuelve al estado anterior.', cat: 'Deshacer' },
-    { cmd: 'git rm -r --cached .godot', desc: 'Deja de rastrear una carpeta sin borrarla del disco.', cat: 'Deshacer' }
+  /* ==========================================================
+     4. BUSCADOR DE COMANDOS DE GIT
+     ========================================================== */
+  const COMANDOS = [
+    { comando: 'git init', descripcion: 'Crea un repositorio nuevo en la carpeta actual.', categoria: 'Inicio' },
+    { comando: 'git clone <url>', descripcion: 'Descarga un repositorio remoto a tu computadora.', categoria: 'Inicio' },
+    { comando: 'git config --global user.name "Nombre"', descripcion: 'Define tu nombre para firmar commits.', categoria: 'Inicio' },
+    { comando: 'git config --global user.email "correo"', descripcion: 'Define tu correo para los commits.', categoria: 'Inicio' },
+    { comando: 'git status', descripcion: 'Muestra qué archivos cambiaron y cuáles están listos para commit.', categoria: 'Día a día' },
+    { comando: 'git add .', descripcion: 'Prepara todos los cambios para el siguiente commit.', categoria: 'Día a día' },
+    { comando: 'git add <archivo>', descripcion: 'Prepara solo un archivo.', categoria: 'Día a día' },
+    { comando: 'git commit -m "mensaje"', descripcion: 'Guarda una foto de lo preparado con un mensaje claro.', categoria: 'Día a día' },
+    { comando: 'git diff', descripcion: 'Muestra línea por línea qué cambió y aún no se ha preparado.', categoria: 'Día a día' },
+    { comando: 'git log --oneline --graph', descripcion: 'Historial compacto con dibujo de ramas.', categoria: 'Día a día' },
+    { comando: 'git branch', descripcion: 'Lista tus ramas locales.', categoria: 'Ramas' },
+    { comando: 'git switch -c <rama>', descripcion: 'Crea una rama nueva y te cambia a ella.', categoria: 'Ramas' },
+    { comando: 'git switch <rama>', descripcion: 'Cambia a una rama existente.', categoria: 'Ramas' },
+    { comando: 'git merge <rama>', descripcion: 'Fusiona esa rama en la que tienes activa.', categoria: 'Ramas' },
+    { comando: 'git branch -d <rama>', descripcion: 'Borra una rama ya fusionada.', categoria: 'Ramas' },
+    { comando: 'git tag v0.1.0', descripcion: 'Marca un commit como versión.', categoria: 'Ramas' },
+    { comando: 'git remote add origin <url>', descripcion: 'Conecta tu repo local con uno en GitHub.', categoria: 'Remoto' },
+    { comando: 'git push -u origin main', descripcion: 'Sube tu rama y recuerda el destino para las siguientes veces.', categoria: 'Remoto' },
+    { comando: 'git push', descripcion: 'Sube tus commits nuevos.', categoria: 'Remoto' },
+    { comando: 'git pull', descripcion: 'Trae y fusiona los cambios del remoto.', categoria: 'Remoto' },
+    { comando: 'git fetch', descripcion: 'Trae información del remoto sin fusionar nada.', categoria: 'Remoto' },
+    { comando: 'git restore <archivo>', descripcion: 'Descarta cambios sin guardar de un archivo.', categoria: 'Deshacer' },
+    { comando: 'git restore --staged <archivo>', descripcion: 'Saca un archivo de los preparados (no borra tus cambios).', categoria: 'Deshacer' },
+    { comando: 'git reset --soft HEAD~1', descripcion: 'Deshace el último commit conservando tus cambios.', categoria: 'Deshacer' },
+    { comando: 'git revert <id>', descripcion: 'Crea un commit que cancela otro. Seguro para historial compartido.', categoria: 'Deshacer' },
+    { comando: 'git merge --abort', descripcion: 'Cancela una fusión con conflictos y vuelve al estado anterior.', categoria: 'Deshacer' },
+    { comando: 'git rm -r --cached .godot', descripcion: 'Deja de rastrear una carpeta sin borrarla del disco.', categoria: 'Deshacer' }
   ];
-  const cats = ['Todos', ...new Set(COMMANDS.map((c) => c.cat))];
-  const listEl = $('#cmd-list');
-  const emptyEl = $('#cmd-empty');
-  const searchEl = $('#cmd-search');
-  const chipsEl = $('#cmd-chips');
-  let activeCat = 'Todos';
 
-  chipsEl.innerHTML = cats.map((c) => `<button type="button" class="chip${c === activeCat ? ' active' : ''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
+  const CATEGORIA_TODAS = 'Todos';
+  const categorias = [CATEGORIA_TODAS, ...new Set(COMANDOS.map((item) => item.categoria))];
+  const listaComandosEl = seleccionar('#cmd-list');
+  const sinResultadosEl = seleccionar('#cmd-empty');
+  const buscadorEl = seleccionar('#cmd-search');
+  const filtrosEl = seleccionar('#cmd-chips');
+  let categoriaActiva = CATEGORIA_TODAS;
 
-  function renderCommands() {
-    const q = searchEl.value.trim().toLowerCase();
-    const rows = COMMANDS.filter((c) =>
-      (activeCat === 'Todos' || c.cat === activeCat) &&
-      (!q || `${c.cmd} ${c.desc} ${c.cat}`.toLowerCase().includes(q))
+  // Botones de filtro por categoría
+  filtrosEl.innerHTML = categorias.map((categoria) =>
+    `<button type="button" class="chip${categoria === categoriaActiva ? ' active' : ''}" data-cat="${escaparHtml(categoria)}">${escaparHtml(categoria)}</button>`
+  ).join('');
+
+  /** Dibuja la lista de comandos aplicando el texto buscado y la categoría elegida. */
+  function mostrarComandos() {
+    const textoBuscado = buscadorEl.value.trim().toLowerCase();
+    const coincidencias = COMANDOS.filter((item) =>
+      (categoriaActiva === CATEGORIA_TODAS || item.categoria === categoriaActiva) &&
+      (!textoBuscado || `${item.comando} ${item.descripcion} ${item.categoria}`.toLowerCase().includes(textoBuscado))
     );
-    listEl.innerHTML = rows.map((c) =>
-      `<button type="button" class="cmd" data-cmd="${esc(c.cmd)}"><small>${esc(c.cat)}</small><code>${esc(c.cmd)}</code><span>${esc(c.desc)}</span></button>`
+    listaComandosEl.innerHTML = coincidencias.map((item) =>
+      `<button type="button" class="cmd" data-cmd="${escaparHtml(item.comando)}"><small>${escaparHtml(item.categoria)}</small><code>${escaparHtml(item.comando)}</code><span>${escaparHtml(item.descripcion)}</span></button>`
     ).join('');
-    emptyEl.hidden = rows.length > 0;
+    sinResultadosEl.hidden = coincidencias.length > 0;
   }
-  chipsEl.addEventListener('click', (e) => {
-    const b = e.target.closest('.chip');
-    if (!b) return;
-    activeCat = b.dataset.cat;
-    $$('.chip', chipsEl).forEach((x) => x.classList.toggle('active', x === b));
-    renderCommands();
+
+  filtrosEl.addEventListener('click', (evento) => {
+    const filtro = evento.target.closest('.chip');
+    if (!filtro) return;
+    categoriaActiva = filtro.dataset.cat;
+    seleccionarTodos('.chip', filtrosEl).forEach((otro) => otro.classList.toggle('active', otro === filtro));
+    mostrarComandos();
   });
-  searchEl.addEventListener('input', renderCommands);
-  listEl.addEventListener('click', async (e) => {
-    const b = e.target.closest('.cmd');
-    if (!b) return;
-    toast((await copyText(b.dataset.cmd)) ? 'Comando copiado' : 'No se pudo copiar');
+  buscadorEl.addEventListener('input', mostrarComandos);
+  listaComandosEl.addEventListener('click', async (evento) => {
+    const tarjeta = evento.target.closest('.cmd');
+    if (!tarjeta) return;
+    const copiado = await copiarTexto(tarjeta.dataset.cmd);
+    mostrarAviso(copiado ? 'Comando copiado' : 'No se pudo copiar');
   });
-  renderCommands();
+  mostrarComandos();
 
-  /* ---------- Simulador de ramas ---------- */
-  (function simulator() {
-    const graphEl = $('#sim-graph');
-    const logEl = $('#sim-log');
-    const branchesEl = $('#sim-branches');
-    if (!graphEl) return;
+  /* ==========================================================
+     5. SIMULADOR DE RAMAS
+     Dibuja un grafo de commits en SVG. Cada rama ocupa un "carril"
+     (una fila horizontal) y cada commit es un círculo en ese carril.
+     ========================================================== */
+  (function simuladorDeRamas() {
+    const grafoEl = seleccionar('#sim-graph');
+    const registroEl = seleccionar('#sim-log');
+    const ramasEl = seleccionar('#sim-branches');
+    if (!grafoEl) return;
 
-    const LANE_COLORS = ['#ff5a1f', '#ebe8e1', '#8fb89a', '#c9a96a'];
-    const MAX_BRANCHES = 4;
-    const X0 = 44, DX = 58, Y0 = 56, DY = 56;
-    let sim, featureCount, logLines;
+    const COLORES_CARRIL = ['#ff5a1f', '#ebe8e1', '#8fb89a', '#c9a96a'];
+    const MAX_RAMAS = 4;
+    const MAX_LINEAS_REGISTRO = 8;
+    // Medidas del dibujo, en píxeles: margen lateral, separación entre commits (X) y entre carriles (Y),
+    // margen inferior y alto de cada nivel de etiquetas
+    const MARGEN_X = 44, SEPARACION_X = 58, SEPARACION_Y = 76, MARGEN_INFERIOR = 50, ALTO_ETIQUETA = 22;
 
-    const hex = () => Math.floor(Math.random() * 0xfffffff).toString(16).padStart(7, '0');
-    const lane = (name) => sim.order.indexOf(name);
+    /**
+     * estado.commits: lista de commits { id, padres: [ids], carril }
+     * estado.ramas:   nombre de rama -> id del commit donde está apuntando
+     * estado.orden:   nombres de las ramas, en el orden de sus carriles
+     * estado.actual:  rama en la que estamos parados (HEAD)
+     */
+    let estado;
+    let contadorRamas;
+    let lineasRegistro;
 
-    function say(cmd) {
-      logLines.push(`<span class="p">$</span> ${esc(cmd)}`);
-      if (logLines.length > 8) logLines.shift();
-      logEl.innerHTML = logLines.join('\n');
-      logEl.scrollTop = logEl.scrollHeight;
-    }
-    function note(text) {
-      logLines.push(`<span class="o">${esc(text)}</span>`);
-      if (logLines.length > 8) logLines.shift();
-      logEl.innerHTML = logLines.join('\n');
-      logEl.scrollTop = logEl.scrollHeight;
-    }
+    /** Genera un identificador corto parecido al de un commit real. */
+    const generarId = () => Math.floor(Math.random() * 0xfffffff).toString(16).padStart(7, '0');
 
-    function reset() {
-      const first = { id: hex(), parents: [], lane: 0 };
-      sim = { commits: [first], branches: { main: first.id }, order: ['main'], current: 'main' };
-      featureCount = 0;
-      logLines = [];
-      say('git init && git commit -m "Commit inicial"');
-      render();
-    }
+    /** Devuelve el número de carril (fila) que le toca a una rama. */
+    const carrilDe = (nombreRama) => estado.orden.indexOf(nombreRama);
 
-    function addCommit() {
-      const c = { id: hex(), parents: [sim.branches[sim.current]], lane: lane(sim.current) };
-      sim.commits.push(c);
-      sim.branches[sim.current] = c.id;
-      say(`git commit -m "cambio ${sim.commits.length - 1}"`);
-      render();
-    }
-
-    function addBranch() {
-      if (sim.order.length >= MAX_BRANCHES) { toast('Máximo 4 ramas en el simulador'); return; }
-      featureCount++;
-      const name = `feature-${featureCount}`;
-      sim.branches[name] = sim.branches[sim.current];
-      sim.order.push(name);
-      sim.current = name;
-      say(`git switch -c ${name}`);
-      render();
+    /** True si el commit "idAncestro" ya forma parte del historial de "idDescendiente". */
+    function esAncestro(idAncestro, idDescendiente) {
+      const pendientes = [idDescendiente];
+      const vistos = new Set();
+      while (pendientes.length) {
+        const id = pendientes.pop();
+        if (id === idAncestro) return true;
+        if (vistos.has(id)) continue;
+        vistos.add(id);
+        const commit = estado.commits.find((c) => c.id === id);
+        pendientes.push(...commit.padres);
+      }
+      return false;
     }
 
-    function switchTo(name) {
-      if (name === sim.current) return;
-      sim.current = name;
-      say(`git switch ${name}`);
-      render();
+    /** Agrega una línea al registro de la terminal simulada. */
+    function agregarLineaRegistro(html) {
+      lineasRegistro.push(html);
+      if (lineasRegistro.length > MAX_LINEAS_REGISTRO) lineasRegistro.shift();
+      registroEl.innerHTML = lineasRegistro.join('\n');
+      registroEl.scrollTop = registroEl.scrollHeight;
+    }
+    const registrarComando = (comando) => agregarLineaRegistro(`<span class="p">$</span> ${escaparHtml(comando)}`);
+    const registrarNota = (texto) => agregarLineaRegistro(`<span class="o">${escaparHtml(texto)}</span>`);
+
+    /** Vuelve al estado inicial: una sola rama (main) con un commit. */
+    function reiniciar() {
+      const primerCommit = { id: generarId(), padres: [], carril: 0 };
+      estado = { commits: [primerCommit], ramas: { main: primerCommit.id }, orden: ['main'], actual: 'main' };
+      contadorRamas = 0;
+      lineasRegistro = [];
+      registrarComando('git init && git commit -m "Commit inicial"');
+      dibujar();
     }
 
-    function mergeToMain() {
-      if (sim.current === 'main') {
-        note('# Cámbiate primero a una rama feature para fusionarla en main');
-        toast('Elige una rama feature');
+    /** git commit: agrega un commit al final de la rama actual. */
+    function hacerCommit() {
+      const commit = {
+        id: generarId(),
+        padres: [estado.ramas[estado.actual]],
+        carril: carrilDe(estado.actual)
+      };
+      estado.commits.push(commit);
+      estado.ramas[estado.actual] = commit.id;
+      registrarComando(`git commit -m "cambio ${estado.commits.length - 1}"`);
+      dibujar();
+    }
+
+    /** git switch -c: crea una rama nueva desde donde estamos y se cambia a ella. */
+    function crearRama() {
+      if (estado.orden.length >= MAX_RAMAS) {
+        mostrarAviso(`Máximo ${MAX_RAMAS} ramas en el simulador`);
         return;
       }
-      const from = sim.current;
-      const c = { id: hex(), parents: [sim.branches.main, sim.branches[from]], lane: 0 };
-      sim.commits.push(c);
-      sim.branches.main = c.id;
-      sim.current = 'main';
-      say(`git switch main && git merge --no-ff ${from}`);
-      render();
+      contadorRamas++;
+      const nombre = `feature-${contadorRamas}`;
+      estado.ramas[nombre] = estado.ramas[estado.actual];
+      estado.orden.push(nombre);
+      estado.actual = nombre;
+      registrarComando(`git switch -c ${nombre}`);
+      dibujar();
     }
 
-    function render() {
-      // chips de ramas
-      branchesEl.innerHTML = sim.order.map((b, i) =>
-        `<button type="button" class="chip${b === sim.current ? ' active' : ''}" data-branch="${esc(b)}" style="${b === sim.current ? '' : `border-color:${LANE_COLORS[i]}55`}">${esc(b)}</button>`
+    /** git switch: cambia a otra rama existente. */
+    function cambiarARama(nombre) {
+      if (nombre === estado.actual) return;
+      estado.actual = nombre;
+      registrarComando(`git switch ${nombre}`);
+      dibujar();
+    }
+
+    /** git merge: fusiona la rama actual en main con un commit de dos padres. */
+    function fusionarEnMain() {
+      if (estado.actual === 'main') {
+        registrarNota('# Cámbiate primero a una rama feature para fusionarla en main');
+        mostrarAviso('Elige una rama feature');
+        return;
+      }
+      const ramaOrigen = estado.actual;
+      if (esAncestro(estado.ramas[ramaOrigen], estado.ramas.main)) {
+        registrarComando(`git switch main && git merge ${ramaOrigen}`);
+        registrarNota('Already up to date. (haz un commit en la rama antes de fusionar)');
+        estado.actual = 'main';
+        mostrarAviso('Esa rama no tiene commits nuevos');
+        dibujar();
+        return;
+      }
+      const commitFusion = {
+        id: generarId(),
+        padres: [estado.ramas.main, estado.ramas[ramaOrigen]],
+        carril: 0
+      };
+      estado.commits.push(commitFusion);
+      estado.ramas.main = commitFusion.id;
+      estado.actual = 'main';
+      registrarComando(`git switch main && git merge --no-ff ${ramaOrigen}`);
+      dibujar();
+    }
+
+    /** Redibuja los botones de rama y el grafo SVG completo a partir del estado. */
+    function dibujar() {
+      // Botones de rama; data-carril permite colorear su borde desde el CSS
+      ramasEl.innerHTML = estado.orden.map((nombre, carril) =>
+        `<button type="button" class="chip${nombre === estado.actual ? ' active' : ''}" data-carril="${carril}" data-branch="${escaparHtml(nombre)}">${escaparHtml(nombre)}</button>`
       ).join('');
 
-      const idx = new Map(sim.commits.map((c, i) => [c.id, i]));
-      const pos = (c) => ({ x: X0 + idx.get(c.id) * DX, y: Y0 + c.lane * DY });
-      const width = Math.max(560, X0 * 2 + (sim.commits.length - 1) * DX + 40);
-      const height = Y0 + (MAX_BRANCHES - 1) * DY + 40;
+      const posicionDeCommit = new Map(estado.commits.map((commit, posicion) => [commit.id, posicion]));
+      const xDe = (commit) => MARGEN_X + posicionDeCommit.get(commit.id) * SEPARACION_X;
 
-      let edges = '', nodes = '', labels = '';
-      for (const c of sim.commits) {
-        const p = pos(c);
-        for (const pid of c.parents) {
-          const parent = sim.commits[idx.get(pid)];
-          const q = pos(parent);
-          const color = LANE_COLORS[c.lane];
-          if (q.y === p.y) {
-            edges += `<line x1="${q.x}" y1="${q.y}" x2="${p.x}" y2="${p.y}" stroke="${color}" stroke-width="3" stroke-linecap="round" opacity=".85"/>`;
+      // 1) Etiquetas de rama: se decide primero en qué "nivel" (altura) va cada una.
+      //    Si dos etiquetas del mismo carril se taparían, la segunda sube un nivel.
+      const etiquetas = [];
+      estado.orden.forEach((nombre, carril) => {
+        const ultimoCommit = estado.commits[posicionDeCommit.get(estado.ramas[nombre])];
+        const esActual = nombre === estado.actual;
+        const texto = (esActual ? 'HEAD → ' : '') + nombre;
+        const anchoEtiqueta = texto.length * 6.6 + 18;
+        const x = xDe(ultimoCommit);
+        const izquierda = x - anchoEtiqueta / 2;
+        const derecha = x + anchoEtiqueta / 2;
+        let nivel = 0;
+        while (etiquetas.some((otra) =>
+          otra.carrilDelCommit === ultimoCommit.carril && otra.nivel === nivel &&
+          izquierda < otra.derecha + 6 && derecha > otra.izquierda - 6)) {
+          nivel++;
+        }
+        etiquetas.push({ carril, carrilDelCommit: ultimoCommit.carril, texto, anchoEtiqueta, x, izquierda, derecha, nivel, esActual });
+      });
+
+      // El margen superior crece según los niveles de etiquetas que haya que apilar
+      const nivelMaximo = Math.max(...etiquetas.map((etiqueta) => etiqueta.nivel));
+      const margenY = 46 + nivelMaximo * ALTO_ETIQUETA;
+      const coordenadas = (commit) => ({ x: xDe(commit), y: margenY + commit.carril * SEPARACION_Y });
+      const ancho = Math.max(560, MARGEN_X * 2 + (estado.commits.length - 1) * SEPARACION_X + 40);
+      // Solo se reserva espacio para los carriles que ya tienen commits
+      const carrilMaximo = Math.max(...estado.commits.map((commit) => commit.carril));
+      const alto = margenY + carrilMaximo * SEPARACION_Y + MARGEN_INFERIOR;
+
+      let lineas = '', circulos = '', textoEtiquetas = '';
+
+      // 2) Líneas que unen cada commit con su(s) padre(s)
+      for (const commit of estado.commits) {
+        const destino = coordenadas(commit);
+        for (const idPadre of commit.padres) {
+          const padre = estado.commits[posicionDeCommit.get(idPadre)];
+          const origen = coordenadas(padre);
+          if (origen.y === destino.y) {
+            // Mismo carril: línea recta
+            lineas += `<line x1="${origen.x}" y1="${origen.y}" x2="${destino.x}" y2="${destino.y}" stroke="${COLORES_CARRIL[commit.carril]}" stroke-width="3" stroke-linecap="round" opacity=".85"/>`;
           } else {
-            const mx = (q.x + p.x) / 2;
-            const edgeColor = LANE_COLORS[Math.max(parent.lane, c.lane)];
-            edges += `<path d="M${q.x},${q.y} C${mx},${q.y} ${mx},${p.y} ${p.x},${p.y}" fill="none" stroke="${edgeColor}" stroke-width="3" stroke-linecap="round" opacity=".85"/>`;
+            // Cambia de carril (nueva rama o merge): curva suave
+            const mitadX = (origen.x + destino.x) / 2;
+            const color = COLORES_CARRIL[Math.max(padre.carril, commit.carril)];
+            lineas += `<path d="M${origen.x},${origen.y} C${mitadX},${origen.y} ${mitadX},${destino.y} ${destino.x},${destino.y}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" opacity=".85"/>`;
           }
         }
       }
-      for (const c of sim.commits) {
-        const p = pos(c);
-        const color = LANE_COLORS[c.lane];
-        const merge = c.parents.length > 1;
-        nodes += `<g><circle cx="${p.x}" cy="${p.y}" r="${merge ? 11 : 9}" fill="#000" stroke="${color}" stroke-width="3"/>` +
-          (merge ? `<circle cx="${p.x}" cy="${p.y}" r="4" fill="${color}"/>` : '') +
-          `<text x="${p.x}" y="${p.y + 30}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#86827a">${c.id.slice(0, 5)}</text></g>`;
-      }
-      const stack = {};
-      sim.order.forEach((b, i) => {
-        const head = sim.commits[idx.get(sim.branches[b])];
-        const p = pos(head);
-        const k = stack[head.id] = (stack[head.id] || 0);
-        stack[head.id]++;
-        const isCur = b === sim.current;
-        const text = (isCur ? 'HEAD → ' : '') + b;
-        const w = text.length * 6.6 + 18;
-        const y = p.y - 30 - k * 22;
-        labels += `<g><rect x="${p.x - w / 2}" y="${y - 12}" width="${w}" height="19" rx="9.5" fill="${isCur ? LANE_COLORS[i] : '#000'}" stroke="${LANE_COLORS[i]}" stroke-width="1.2"/>` +
-          `<text x="${p.x}" y="${y + 1.5}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" font-weight="600" fill="${isCur ? '#000' : LANE_COLORS[i]}">${esc(text)}</text></g>`;
-      });
 
-      graphEl.innerHTML = `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">${edges}${nodes}${labels}</svg>`;
-      const wrap = graphEl.parentElement;
-      wrap.scrollLeft = wrap.scrollWidth;
+      // 3) Círculos de los commits (los merges llevan un punto en el centro)
+      for (const commit of estado.commits) {
+        const { x, y } = coordenadas(commit);
+        const color = COLORES_CARRIL[commit.carril];
+        const esMerge = commit.padres.length > 1;
+        circulos += `<g><circle cx="${x}" cy="${y}" r="${esMerge ? 11 : 9}" fill="#000" stroke="${color}" stroke-width="3"/>` +
+          (esMerge ? `<circle cx="${x}" cy="${y}" r="4" fill="${color}"/>` : '') +
+          `<text x="${x}" y="${y + 30}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#86827a">${commit.id.slice(0, 5)}</text></g>`;
+      }
+
+      // 4) Dibujo de las etiquetas, ya con su nivel calculado
+      for (const etiqueta of etiquetas) {
+        const y = margenY + etiqueta.carrilDelCommit * SEPARACION_Y - 30 - etiqueta.nivel * ALTO_ETIQUETA;
+        const color = COLORES_CARRIL[etiqueta.carril];
+        textoEtiquetas += `<g><rect x="${etiqueta.izquierda}" y="${y - 12}" width="${etiqueta.anchoEtiqueta}" height="19" rx="9.5" fill="${etiqueta.esActual ? color : '#000'}" stroke="${color}" stroke-width="1.2"/>` +
+          `<text x="${etiqueta.x}" y="${y + 1.5}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" font-weight="600" fill="${etiqueta.esActual ? '#000' : color}">${escaparHtml(etiqueta.texto)}</text></g>`;
+      }
+
+      grafoEl.innerHTML = `<svg viewBox="0 0 ${ancho} ${alto}" width="${ancho}" height="${alto}" xmlns="http://www.w3.org/2000/svg">${lineas}${circulos}${textoEtiquetas}</svg>`;
+      // Mantiene visible el commit más reciente cuando el grafo crece hacia la derecha
+      const contenedor = grafoEl.parentElement;
+      contenedor.scrollLeft = contenedor.scrollWidth;
     }
 
-    $('#sim-commit').addEventListener('click', addCommit);
-    $('#sim-branch').addEventListener('click', addBranch);
-    $('#sim-merge').addEventListener('click', mergeToMain);
-    $('#sim-reset').addEventListener('click', reset);
-    branchesEl.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-branch]');
-      if (b) switchTo(b.dataset.branch);
+    seleccionar('#sim-commit').addEventListener('click', hacerCommit);
+    seleccionar('#sim-branch').addEventListener('click', crearRama);
+    seleccionar('#sim-merge').addEventListener('click', fusionarEnMain);
+    seleccionar('#sim-reset').addEventListener('click', reiniciar);
+    ramasEl.addEventListener('click', (evento) => {
+      const boton = evento.target.closest('[data-branch]');
+      if (boton) cambiarARama(boton.dataset.branch);
     });
-    reset();
+    reiniciar();
   })();
 
-  /* ---------- Pestañas (.gitignore / .gitattributes) ---------- */
-  $$('.tab').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      $$('.tab').forEach((t) => { t.classList.toggle('active', t === tab); t.setAttribute('aria-selected', String(t === tab)); });
-      $$('.tabpanel').forEach((p) => {
-        const on = p.id === `tab-${tab.dataset.tab}`;
-        p.classList.toggle('active', on);
-        p.hidden = !on;
+  /* ==========================================================
+     6. PESTAÑAS (.gitignore / .gitattributes)
+     ========================================================== */
+  seleccionarTodos('.tab').forEach((pestana) => {
+    pestana.addEventListener('click', () => {
+      // Marca como activa solo la pestaña pulsada
+      seleccionarTodos('.tab').forEach((otra) => {
+        otra.classList.toggle('active', otra === pestana);
+        otra.setAttribute('aria-selected', String(otra === pestana));
+      });
+      // Muestra solo el panel que corresponde a esa pestaña
+      seleccionarTodos('.tabpanel').forEach((panel) => {
+        const esElPanel = panel.id === `tab-${pestana.dataset.tab}`;
+        panel.classList.toggle('active', esElPanel);
+        panel.hidden = !esElPanel;
       });
     });
   });
 
-  /* ---------- Checklist con localStorage ---------- */
+  /* ==========================================================
+     7. CHECKLIST DE PROGRESO
+     Guarda lo marcado en localStorage para que no se pierda al recargar.
+     ========================================================== */
   (function checklist() {
-    const KEY = 'fora-commit-checklist-v1';
-    const boxes = $$('#checklist-items input[type="checkbox"]');
-    const pctEl = $('#check-pct');
-    const barEl = $('#check-bar');
+    const CLAVE_ALMACENAMIENTO = 'fora-commit-checklist-v1';
+    const casillas = seleccionarTodos('#checklist-items input[type="checkbox"]');
+    const porcentajeEl = seleccionar('#check-pct');
+    const barraEl = seleccionar('#check-bar');
 
-    let saved = {};
-    try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (_) { saved = {}; }
-    boxes.forEach((b) => { b.checked = !!saved[b.dataset.key]; });
+    // Recupera lo guardado. Si localStorage no está disponible, empieza vacío.
+    let guardado = {};
+    try { guardado = JSON.parse(localStorage.getItem(CLAVE_ALMACENAMIENTO) || '{}') || {}; } catch (_) { guardado = {}; }
+    casillas.forEach((casilla) => { casilla.checked = Boolean(guardado[casilla.dataset.key]); });
 
-    function update(persist) {
-      const done = boxes.filter((b) => b.checked).length;
-      const pct = Math.round((done / boxes.length) * 100);
-      pctEl.textContent = `${pct}%`;
-      barEl.style.width = `${pct}%`;
-      if (persist) {
-        const state = {};
-        boxes.forEach((b) => { state[b.dataset.key] = b.checked; });
-        try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (_) { /* almacenamiento no disponible */ }
+    /**
+     * Recalcula el porcentaje y actualiza la barra.
+     * @param {boolean} guardar si es true, también guarda el estado en localStorage.
+     * @returns {number} porcentaje completado (0 a 100).
+     */
+    function actualizar(guardar) {
+      const hechas = casillas.filter((casilla) => casilla.checked).length;
+      const porcentaje = Math.round((hechas / casillas.length) * 100);
+      porcentajeEl.textContent = `${porcentaje}%`;
+      barraEl.style.width = `${porcentaje}%`;
+      if (guardar) {
+        const estadoCasillas = {};
+        casillas.forEach((casilla) => { estadoCasillas[casilla.dataset.key] = casilla.checked; });
+        try { localStorage.setItem(CLAVE_ALMACENAMIENTO, JSON.stringify(estadoCasillas)); } catch (_) { /* almacenamiento no disponible */ }
       }
-      return pct;
+      return porcentaje;
     }
-    boxes.forEach((b) => b.addEventListener('change', () => {
-      if (update(true) === 100 && b.checked) toast('Ruta completa');
+
+    casillas.forEach((casilla) => casilla.addEventListener('change', () => {
+      if (actualizar(true) === 100 && casilla.checked) mostrarAviso('Ruta completa');
     }));
-    $('#check-reset').addEventListener('click', () => {
-      boxes.forEach((b) => { b.checked = false; });
-      update(true);
+    seleccionar('#check-reset').addEventListener('click', () => {
+      casillas.forEach((casilla) => { casilla.checked = false; });
+      actualizar(true);
     });
-    update(false);
+    actualizar(false);
   })();
 })();

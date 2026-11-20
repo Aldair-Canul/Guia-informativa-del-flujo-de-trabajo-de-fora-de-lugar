@@ -289,12 +289,14 @@ Thumbs.db</code></pre>
 
         <div class="code" data-lang="bash">
           <button class="copy" type="button">Copiar</button>
-          <pre><code>
+          <pre><code> 
 git remote add origin https://github.com/TU-USUARIO/mi-juego.git
 git branch -M main
 git push -u origin main
 
 # el ciclo diario, a partir de aquí:
+git switch main
+git pull
 git switch -c tu-rama
 git add .
 git commit -m "Describe lo que hiciste"
@@ -312,8 +314,6 @@ ya que su trabajo terminó
 # actualizar tu computadora:
 git switch main 
 git pull
-
-
 </code></pre>
         </div>
         <p class="note">Para colaborar: crea una rama, súbela con <code>git push -u origin nombre-rama</code> y abre un <em>Pull Request</em>. Alguien lo revisa antes de fusionarlo.</p>
@@ -343,10 +343,10 @@ git pull
 
         <h3 class="mini-title spaced">Commits por mes</h3>
         <div class="bars" role="img" aria-label="Commits por mes: julio 23, agosto 30, septiembre 32, octubre 43">
-          <div class="bar" style="--v:23"><i></i><b>23</b><span>jul</span></div>
-          <div class="bar" style="--v:30"><i></i><b>30</b><span>ago</span></div>
-          <div class="bar" style="--v:32"><i></i><b>32</b><span>sep</span></div>
-          <div class="bar" style="--v:43"><i></i><b>43</b><span>oct</span></div>
+          <div class="bar"><i></i><b>23</b><span>jul</span></div>
+          <div class="bar"><i></i><b>30</b><span>ago</span></div>
+          <div class="bar"><i></i><b>32</b><span>sep</span></div>
+          <div class="bar"><i></i><b>43</b><span>oct</span></div>
         </div>
         <p class="muted small">Incluye los commits de merge. El ritmo sube hacia la entrega.</p>
 
@@ -370,7 +370,8 @@ git pull
         </ol>
         <div class="code" data-lang="bash · un ejemplo real">
           <button class="copy" type="button">Copiar</button>
-          <pre><code>git switch main
+          <pre><code># descargamos cambios
+git switch main
 git pull
 git switch -c fix/cinematicas
 # ...trabajas en Godot...
@@ -401,31 +402,6 @@ git push -u origin fix/cinematicas
             </ul>
           </div>
         </div>
-
-        <h3 class="mini-title spaced">Lo que haríamos distinto</h3>
-        <p class="muted">Al revisar el historial, esto es lo que nos falta pulir. Mejor aprender de nuestros errores que repetirlos.</p>
-        <ul class="issues">
-          <li>
-            <b>Los ejecutables viven en el repo.</b>
-            <span>La carpeta <code>EXPORTACIONES</code> (builds de Web y Linux) pesa unos 104 MB y cada versión nueva se suma al historial. La carpeta <code>.git</code> ya ronda los 533 MB. Para builds es mejor usar GitHub Releases, y Git LFS para videos y arte pesado.</span>
-          </li>
-          <li>
-            <b>Nombres de rama que no dicen nada.</b>
-            <span>Junto a <code>fix/cuarto</code> conviven <code>final</code>, <code>reduccion</code> o <code>MAFER</code>, y se mezclan <code>feat/</code> con <code>feature/</code>. Una regla escrita evita eso.</span>
-          </li>
-          <li>
-            <b>Algunos mensajes no explican el cambio.</b>
-            <span>Hay commits que solo dicen <code>Bugs</code> o un emoji. Dentro de un mes nadie recordará qué eran.</span>
-          </li>
-          <li>
-            <b>El <code>.gitignore</code> ignora <code>*.import</code>,</b>
-            <span>pero más de cien de esos archivos ya se rastrean. Lo recomendado en Godot 4 es subirlos y dejar fuera solo <code>.godot/</code>.</span>
-          </li>
-          <li>
-            <b>No hay README en la raíz.</b>
-            <span>Quien llegue al repo no sabe qué es ni cómo abrirlo. Dos párrafos y la versión de Godot bastan.</span>
-          </li>
-        </ul>
       </div>
     </section>
 
@@ -501,10 +477,7 @@ git push -u origin fix/cinematicas
         <p class="muted small copyright">© 2026 Equipo Fora de Lugar · Facultad de Ingeniería. Todos los derechos reservados.</p>
       </div>
       <div class="foot-links">
-        <a href="https://fora-pagina-informativa.pages.dev/">
-          Pagina Informativa
-          de Fora de Lugar
-        </a>
+        <a href="https://fora-pagina-informativa.pages.dev/">Página de Fora</a>
         <a href="https://github.com/Aldair-Canul/Facultad-de-Ingenieria---Fora-de-Lugar" target="_blank" rel="noopener">Nuestro repo</a>
         <a href="https://docs.godotengine.org/es/stable/" target="_blank" rel="noopener">Docs de Godot</a>
         <a href="https://git-scm.com/book/es/v2" target="_blank" rel="noopener">Pro Git</a>
