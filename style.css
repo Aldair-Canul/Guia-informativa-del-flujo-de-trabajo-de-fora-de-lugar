@@ -128,6 +128,13 @@ strong, b { font-weight: 600; }
 .chip { padding: 5px 12px; border: 1px solid var(--line-2); background: transparent; color: var(--mute); font: .78rem var(--mono); cursor: pointer; }
 .chip:hover { color: var(--ink); border-color: var(--ink); }
 .chip.active { background: var(--ink); border-color: var(--ink); color: #000; }
+/* Botones de rama del simulador: el borde toma el color de su carril */
+.chip[data-carril="0"]:not(.active) { border-color: #ff5a1f55; }
+.chip[data-carril="1"]:not(.active) { border-color: #ebe8e155; }
+.chip[data-carril="2"]:not(.active) { border-color: #8fb89a55; }
+.chip[data-carril="3"]:not(.active) { border-color: #c9a96a55; }
+/* Área temporal que usa el copiado de respaldo: fuera de la vista */
+.copia-temporal { position: fixed; opacity: 0; }
 .cmd-list { border-top: 1px solid var(--line-2); }
 .cmd { display: grid; grid-template-columns: 74px minmax(0, 290px) 1fr; gap: 14px; align-items: baseline; width: 100%; text-align: left; padding: 13px 0; background: none; border: 0; border-bottom: 1px solid var(--line); color: var(--ink); font: inherit; cursor: pointer; }
 .cmd:hover { background: #0d0c0a; }
@@ -140,8 +147,8 @@ strong, b { font-weight: 600; }
 .sim { border: 1px solid var(--line-2); background: #000; padding: 18px; }
 .sim-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .sim-canvas { margin-top: 14px; border: 1px solid var(--line); overflow-x: auto; background: #030302; }
-#sim-graph { min-height: 250px; }
-#sim-graph svg { display: block; min-height: 250px; }
+#sim-graph { min-height: 160px; }
+#sim-graph svg { display: block; }
 .sim-log { margin: 14px 0 0; padding: 12px 14px; border: 1px solid var(--line); font-size: .8rem; line-height: 1.7; color: #bdb9b0; min-height: 120px; max-height: 170px; overflow-y: auto; }
 .sim-log .p { color: var(--accent); }
 .sim-log .o { color: var(--mute); }
@@ -182,13 +189,14 @@ strong, b { font-weight: 600; }
 .bar { position: relative; flex: 1; max-width: 90px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
 .bar i { display: block; height: calc(var(--v) / 43 * 100% - 24px); min-height: 4px; background: var(--ink); transform-origin: bottom; transition: transform .8s cubic-bezier(.2, .7, .2, 1); }
 .bar:last-child i { background: var(--accent); }
+/* Commits por mes (jul, ago, sep, oct). Si cambian los datos, se ajustan aquí y en el HTML. */
+.bar:nth-child(1) { --v: 23; }
+.bar:nth-child(2) { --v: 30; }
+.bar:nth-child(3) { --v: 32; }
+.bar:nth-child(4) { --v: 43; }
 .bar b { position: absolute; left: 0; font: 500 .8rem var(--mono); bottom: calc(var(--v) / 43 * 100% - 20px + 4px); }
 .bar span { position: absolute; left: 0; bottom: -24px; font: .74rem var(--mono); color: var(--mute); }
 .js .bars:not(.in) .bar i { transform: scaleY(0); }
-.issues { list-style: none; margin: 18px 0 0; padding: 0; border-top: 1px solid var(--line-2); }
-.issues li { padding: 18px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 240px 1fr; gap: 24px; }
-.issues b { font-weight: 600; }
-.issues span { color: #bdb9b0; font-size: .95rem; }
 
 /* ---------- Checklist ---------- */
 .meter { margin-bottom: 20px; }
@@ -237,8 +245,7 @@ strong, b { font-weight: 600; }
   .hero-row { grid-template-columns: 1fr; }
   .cmd { grid-template-columns: 1fr; gap: 4px; }
   .rows article { grid-template-columns: 1fr; gap: 8px; }
-  .habits > div, .issues li { grid-template-columns: 1fr; gap: 6px; }
-}
+  .habits > div, }
 @media (max-width: 640px) {
   .rail li { grid-template-columns: 34px minmax(0, 1fr); }
   .nav { flex-direction: column; align-items: flex-start; gap: 6px; }
